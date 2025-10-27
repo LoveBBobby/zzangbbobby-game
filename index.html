@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>뽀삐의 지분 되찾기 대작전! (Full Ver.)</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
+        body { background-color: #1a1a1d; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: 'Noto Sans KR', sans-serif; color: white; overflow: hidden; }
+        #game-wrapper { border: 5px solid #7289da; border-radius: 10px; box-shadow: 0 0 30px rgba(114, 137, 218, 0.7); position: relative; display: none; background-size: cover; background-position: center; }
+        canvas { display: block; background-color: #2c2f33; background-size: cover; background-position: center; }
+        #ui-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .ui-element { position: absolute; background-color: rgba(0,0,0,0.7); padding: 8px 15px; border-radius: 10px; font-weight: bold; }
+        #jibun-display { top: 15px; right: 15px; font-size: 24px; color: #FFD700; }
+        #hp-bar-container { top: 20px; left: 20px; width: 300px; height: 25px; border: 2px solid #fff; padding: 0; }
+        #hp-bar { width: 100%; height: 100%; background-color: #43b581; transition: width 0.2s; }
+        #mission-tracker { top: 60px; left: 20px; font-size: 20px; color: #FFD700; }
+        #cooldown-tracker { top: 100px; left: 20px; font-size: 18px; color: cyan; }
+        #hoodie-cooldown-tracker { top: 130px; left: 20px; font-size: 18px; color: #b39ddb; }
+        #event-text { bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 22px; text-shadow: 2px 2px 4px #000; animation: fadeInOut 3s forwards; display: none; }
+        @keyframes fadeInOut { 0%, 100% { opacity: 0; } 10%, 90% { opacity: 1; } }
+        .overlay-box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(0,0,0,0.85); padding: 20px 40px; border-radius: 15px; text-align: center; font-size: 24px; font-weight: bold; display: none; pointer-events: all; line-height: 1.6; max-width: 80%; z-index: 100; }
+        #message-box h3 { font-size: 32px; margin-top: 0; color: #7289da;}
+        #message-box p { font-size: 20px; color: #eee; margin-bottom: 25px; white-space: pre-wrap; }
+        #message-box.game-over #message-title { display: none; }
+        #message-box.game-over #message-text { color: #e0245e; font-size: 32px; font-weight: bold; text-shadow: 2px 2px 4px #000; }
+        #message-box button, .choice-btn { margin: 8px; padding: 12px 24px; font-size: 20px; cursor: pointer; border-radius: 8px; border: none; background-color: #43b581; color: white; transition: background-color 0.2s; }
+        #message-box button:hover, .choice-btn:hover { background-color: #3aa070; }
+        #message-box button:disabled, .choice-btn:disabled { background-color: #555; cursor: not-allowed; }
+        #pause-menu, #credits-screen { font-size: 18px; line-height: 1.7; }
+        #pause-menu h2, #credits-screen h2 { margin-top: 0; font-size: 32px; color: #7289da; }
+        #pause-menu .controls p, #pause-menu .shop-info p { margin: 8px 0; }
+        #pause-menu span { color: #FFD700; font-weight: bold; }
+        #item-shop { margin-top: 15px; border-top: 2px solid #4f545c; padding-top: 15px; }
+        .item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .item-desc { text-align: left; }
+        .item-name { font-weight: bold; font-size: 18px; }
+        .item-buy-btn { padding: 8px 12px; font-size: 16px; cursor: pointer; margin-left: 20px; }
+        #start-screen { padding: 50px; text-align: center; }
+        #start-screen h1 { font-size: 48px; color: #7289da; }
+        #start-screen p { font-size: 20px; margin: 30px 0; }
+        #start-game-button { padding: 15px 30px; font-size: 24px; font-weight: bold; cursor: pointer; background-color: #43b581; border: none; color: white; border-radius: 10px; }
+        .credits-section { margin-bottom: 20px; }
+        .credits-section h3 { color: #FFD700; }
+    </style>
+</head>
+<body>
+
+<div id="start-screen">
+    <h1>뽀삐의 지분 되찾기 대작전!</h1>
+    <p>3대장에게 빼앗긴 99.9%의 지분을 되찾기 위한 뽀삐의 처절한 사투가 시작된다!</p>
+    <button id="start-game-button">게임 시작</button>
+</div>
+
+<div id="game-wrapper">
+    <canvas id="gameCanvas" width="1000" height="600"></canvas>
+    <div id="ui-overlay">
+        <div id="jibun-display" class="ui-element">뽀삐 지분: <span>0.1</span>%</div>
+        <div id="hp-bar-container" class="ui-element"><div id="hp-bar"></div></div>
+        <div id="mission-tracker" class="ui-element"></div>
+        <div id="fps-display" class="ui-element" style="top: 160px; left: 20px; font-size: 14px; color: #ccc;">FPS: 0</div>
+        <div id="cooldown-tracker" class="ui-element"></div>
+        <div id="hoodie-cooldown-tracker" class="ui-element"></div>
+        <div id="event-text" class="ui-element"></div>
+        <div id="message-box" class="overlay-box">
+            <h3 id="message-title"></h3>
+            <p id="message-text"></p>
+            <div id="message-choices"></div>
+            <button id="message-button">계속</button>
+        </div>
+        <div id="pause-menu" class="overlay-box">
+             <div style="display: flex; justify-content: space-around; gap: 40px;">
+                <div class="controls">
+                    <h2>일시 정지</h2>
+                    <p>이동: <span>방향키</span></p>
+                    <p>앞 손 휘젓기: <span>숫자 1</span></p>
+                    <p>발차기: <span>숫자 2</span></p>
+                    <p>후드 쓰기: <span>숫자 3</span></p>
+                    <p>스테이지 스킵: <span>숫자 0</span></p>
+                    <p style="font-size: 14px; margin-top: 20px;">계속하려면 <span>Shift</span>를 누르세요.</p>
+                </div>
+                <div class="shop-info">
+                    <h2>아이템 상점</h2>
+                    <p>보유 지분: <span id="pause-jibun"></span>%</p>
+                    <div id="item-shop"></div>
+                    <p style="font-size: 12px; color: #aaa; margin-top: 10px;">* 구매 즉시 사용되며, 지분은 안윤상에게 돌아갑니다.</p>
+                </div>
+            </div>
+        </div>
+        <div id="credits-screen" class="overlay-box">
+            <h2>뽀삐의 지분 되찾기 대작전!</h2>
+            <div style="max-height: 400px; overflow-y: auto; padding: 10px;">
+                <div class="credits-section"><h3>주연</h3><p>뽀삐 (장준영)</p></div>
+                <div class="credits-section"><h3>뽀삐 주인 3대장</h3><p>안윤상<br>박정우<br>김은성</p></div>
+                <div class="credits-section"><h3>조연</h3><p>남윤찬, 위준, 박지원, 김지훈, 김주희 선생님, 윤여민, 정지안, 고현서</p></div>
+                <div class="credits-section"><h3>우정출연</h3><p>최인영</p></div>
+                <div class="credits-section"><h3>특별출연</h3><p>차한빈, 박종현</p></div>
+                <div class="credits-section"><h3>최종보스</h3><p>윤희철</p></div>
+                <div class="credits-section"><h3>Special Thanks to</h3><p style="color: #FFD700; font-size: 24px;">안윤상</p></div>
+                <div class="credits-section">
+                    <h3>재미있는 사실들 (Fun Facts)</h3>
+                    <p style="font-size: 16px;">
+                        - 사실 이 게임의 지분 99%는 안윤상이 가지고 있습니다.<br>
+                        - 안윤상은 이 게임을 만드는 데 아무런 기여도 하지 않았습니다.<br>
+                        - 하지만 안윤상은 이 게임을 좋아할 것입니다.<br>
+                        - 안윤상.<br>
+                        - 업데이트: 기기 사양에 따른 속도 차이 문제 해결.<br>
+                        - 이강유.
+                    </p>
+                </div>
+            </div>
+            <p style="margin-top: 20px;">Thanks for Playing!</p>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- HTML Elements & Game State ---
+const startScreen = document.getElementById('start-screen'), startGameButton = document.getElementById('start-game-button'), gameWrapper = document.getElementById('game-wrapper'), canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d'), jibunSpan = document.querySelector('#jibun-display span'), hpBar = document.getElementById('hp-bar'), missionTracker = document.getElementById('mission-tracker'), cooldownTracker = document.getElementById('cooldown-tracker'), hoodieCooldownTracker = document.getElementById('hoodie-cooldown-tracker'), eventText = document.getElementById('event-text'), messageBox = document.getElementById('message-box'), messageTitle = document.getElementById('message-title'), messageText = document.getElementById('message-text'), messageChoices = document.getElementById('message-choices'), messageButton = document.getElementById('message-button'), pauseMenu = document.getElementById('pause-menu'), pauseJibun = document.getElementById('pause-jibun'), itemShopContainer = document.getElementById('item-shop'), creditsScreen = document.getElementById('credits-screen'), fpsDisplay = document.getElementById('fps-display');
+let gameState = 'startScreen', jibun = 0.1, currentStage = 0, keys = {};
+let player, enemies = [], projectiles = [], npcs = [], hazards = [], stageObjects = [];
+let stageTimer, heechulTimer = null, cutsceneState = { active: false };
+let currentStageConfig = null; let tutorialStep = 0; let tutorialHasBeenPaused = false;
+let lastTime = 0; const MS_PER_UPDATE = 1000 / 60; // 기준 FPS (60)
+
+// --- Image Assets ---
+const classroom1Bg = new Image(); classroom1Bg.src = 'https://i.imgur.com/gK9qZ9a.jpeg';
+const classroom2Bg = new Image(); classroom2Bg.src = 'https://i.imgur.com/mYt8mP0.jpeg';
+const jonghyunImg1 = new Image(); jonghyunImg1.src = 'https://i.imgur.com/PzUa09a.jpeg';
+const jonghyunImg2 = new Image(); jonghyunImg2.src = 'https://i.imgur.com/C9r9b3m.jpeg';
+const jeongwooDefeatBg = new Image(); jeongwooDefeatBg.src = 'https://i.imgur.com/lMcr81P.jpeg';
+
+// --- Character & Object Classes ---
+class Character {
+    constructor(x, y, size, color, hp, speed, name) { this.x = x; this.y = y; this.size = size; this.color = color; this.maxHp = hp; this.hp = hp; this.speed = speed; this.name = name; this.dx = 0; this.dy = 0; this.flashFrames = 0; this.isItemSlowed = false; }
+    draw() {
+        ctx.globalAlpha = (this.flashFrames > 0 && Math.floor(this.flashFrames / 5) % 2 === 0) ? 0.5 : 1;
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.size, this.size);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = this.isItemSlowed ? 'cyan' : 'white'; ctx.font = '14px Noto Sans KR'; ctx.textAlign = 'center';
+        ctx.fillText(this.name, this.x + this.size / 2, this.y - 10);
+        if (this.maxHp < 9999) { ctx.fillStyle = '#666'; ctx.fillRect(this.x, this.y - 20, this.size, 5); ctx.fillStyle = 'lime'; ctx.fillRect(this.x, this.y - 20, this.size * (this.hp / this.maxHp), 5); }
+    }
+    takeDamage(amount) { this.hp -= amount; if (this.hp <= 0) this.hp = 0; }
+}
+class Player extends Character {
+    constructor(x, y) { super(x, y, 40, '#4a90e2', 100, 6, '뽀삐'); this.attack1Cooldown = 0; this.attack2Cooldown = 0; this.hoodieOn = false; this.hoodieCooldown = 0; this.isSlowed = false; this.isBoosted = false; }
+    update(dt) {
+        if (this.attack1Cooldown > 0) this.attack1Cooldown -= dt; if (this.attack2Cooldown > 0) this.attack2Cooldown -= dt; if (this.hoodieCooldown > 0) this.hoodieCooldown -= dt; if(this.flashFrames > 0) this.flashFrames -= dt;
+        this.dx = 0; this.dy = 0; 
+        let currentSpeed = (this.isSlowed ? this.speed / 2 : (this.isBoosted ? this.speed * 1.5 : this.speed)) * (dt / MS_PER_UPDATE);
+        
+        if (keys['ArrowUp']) this.dy = -currentSpeed; 
+        if (keys['ArrowDown']) this.dy = currentSpeed;
+        if (currentStageConfig && currentStageConfig.type !== 'dinoRunner' && currentStageConfig.type !== 'volleyball' && currentStageConfig.type !== 'timer' && currentStageConfig.type !== 'memoryGame') {
+            if (keys['ArrowLeft']) this.dx = -currentSpeed; 
+            if (keys['ArrowRight']) this.dx = currentSpeed;
+        }
+
+        this.x += this.dx; this.y += this.dy; 
+        this.x = Math.max(0, Math.min(canvas.width - this.size, this.x)); 
+        this.y = Math.max(0, Math.min(canvas.height - this.size, this.y));
+
+        if (keys['1'] && this.attack1Cooldown === 0 && currentStageConfig.type !== 'dinoRunner') this.attack('휘젓기'); 
+        if (keys['2'] && this.attack2Cooldown === 0 && currentStageConfig.type !== 'dinoRunner') this.attack('발차기'); 
+        if (keys['3'] && this.hoodieCooldown <= 0) { this.hoodieOn = true; this.hoodieCooldown = 5000; setTimeout(() => this.hoodieOn = false, 2000); }
+    }
+    attack(type) { if (type === '휘젓기') { this.attack1Cooldown = 333; projectiles.push(new AttackHitbox(this.x, this.y, this.size, 'circle', 80, 20, 167)); } else if (type === '발차기') { this.attack2Cooldown = 2000; projectiles.push(new AttackHitbox(this.x, this.y, this.size, 'rect', 120, 30, 333)); } }
+    draw() { super.draw(); if (this.hoodieOn) { ctx.fillStyle = 'rgba(200, 200, 200, 0.5)'; ctx.beginPath(); ctx.arc(this.x + this.size / 2, this.y + this.size / 2, this.size, 0, 2 * Math.PI); ctx.fill(); } }
+    takeDamage(amount) {
+        if (!this.hoodieOn && this.flashFrames <= 0) {
+            super.takeDamage(amount);
+            this.flashFrames = 1000; // 1초
+            if (this.hp <= 0) gameOver(currentStageConfig.defeatName);
+        }
+    }
+}
+class Enemy extends Character {
+    constructor(config) { super(config.x, config.y, config.size, config.color, config.hp, config.speed, config.name); this.ai = config.ai; this.dialogue = config.dialogue || ''; this.aiCooldown = 0; if(config.dx) this.dx = config.dx; }
+    update(dt) { if(this.flashFrames > 0) this.flashFrames -= dt; if (this.aiCooldown > 0) this.aiCooldown -= dt; this.ai(this, dt); }
+    draw() { super.draw(); if (this.dialogue) { ctx.fillStyle = 'yellow'; ctx.font = '24px Noto Sans KR'; ctx.textAlign = 'center'; ctx.fillText(this.dialogue, this.x + this.size / 2, this.y - 25); } }
+}
+class Hazard { constructor(config) { Object.assign(this, config); } update(dt) { const scale = dt / MS_PER_UPDATE; this.x += (this.vx || 0) * scale; this.y += (this.vy || 0) * scale; this.life -= dt; if (this.action) this.action(this, dt); } }
+class Projectile extends Hazard {}
+class AttackHitbox extends Projectile {
+    constructor(x, y, pSize, shape, range, damage, duration) {
+        super({x: x + pSize/2, y: y + pSize/2, shape, range, damage, life: duration, piercing: (shape==='rect')});
+    }
+    draw() {
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.4)';
+        if (this.shape === 'circle') { ctx.beginPath(); ctx.arc(this.x, this.y, this.range, 0, 2 * Math.PI); ctx.fill(); }
+        else { ctx.fillRect(this.x, this.y - this.range / 2, 120, this.range); }
+    }
+}
+class TextObstacle {
+    constructor(y, text, speed) { this.text = text; this.font = 'bold 30px Noto Sans KR'; ctx.font = this.font; this.width = ctx.measureText(this.text).width; this.height = 30; this.x = canvas.width; this.y = y; this.speed = speed; this.color = '#e0245e'; this.life = 10000; this.damage = 10; }
+    update(dt) { this.x -= this.speed * (dt / MS_PER_UPDATE); if (this.x + this.width < 0) this.life = 0; }
+    draw() { ctx.font = this.font; ctx.fillStyle = this.color; ctx.textAlign = 'left'; ctx.fillText(this.text, this.x, this.y); }
+}
+
+// Helper Functions ---
+function isColliding(obj1, obj2) {
+    if (!obj1 || !obj2 || obj1.life <= 0 || (obj2.hp !== undefined && obj2.hp <= 0)) return false;
+
+    if (obj1.shape === 'circle' && obj2.size) { // Circle vs Rect
+        const circle = { x: obj1.x, y: obj1.y, r: obj1.range };
+        const rect = { x: obj2.x, y: obj2.y, w: obj2.size, h: obj2.size };
+        const closestX = Math.max(rect.x, Math.min(circle.x, rect.x + rect.w));
+        const closestY = Math.max(rect.y, Math.min(circle.y, rect.y + rect.h));
+        const distanceX = circle.x - closestX;
+        const distanceY = circle.y - closestY;
+        return (distanceX * distanceX) + (distanceY * distanceY) < (circle.r * circle.r);
+    }
+
+    let r1 = { x: obj1.x, y: obj1.y, w: obj1.width || obj1.w || obj1.size, h: obj1.height || obj1.h || obj1.size };
+    const r2 = { x: obj2.x, y: obj2.y, w: obj2.w || obj2.size, h: obj2.h || obj2.size };
+    if (obj1 instanceof TextObstacle) r1.y -= r1.h;
+    return r1.x < r2.x + r2.w && r1.x + r1.w > r2.x && r1.y < r2.y + r2.h && r1.y + r1.h > r2.y;
+}
+function showEventText(text) { eventText.textContent = text; eventText.style.display = 'block'; eventText.style.animation = `fadeInOut 3s forwards`; }
+
+// --- AI Behaviors ---
+const AIs = {
+    chase: (self, dt) => { const speed = (self.isItemSlowed ? self.speed * 0.5 : self.speed) * (dt / MS_PER_UPDATE); const angle = Math.atan2(player.y - self.y, player.x - self.x); self.x += Math.cos(angle) * speed; self.y += Math.sin(angle) * speed; if (isColliding(player, self)) player.takeDamage(5); },
+    yoonchanCharge: (self, dt) => {
+        if(self.aiState === 'charging') {
+            const speed = (self.isItemSlowed ? self.speed * 0.5 : self.speed) * (dt / MS_PER_UPDATE);
+            const angle = Math.atan2(self.targetY - self.y, self.targetX - self.x);
+            self.x += Math.cos(angle) * speed * 2; self.y += Math.sin(angle) * speed * 2;
+            if (isColliding(player, self)) player.takeDamage(15);
+            if (Math.hypot(self.x - self.targetX, self.y - self.targetY) < 20 || self.x < 0 || self.x > canvas.width || self.y < 0 || self.y > canvas.height) {
+                self.aiState = 'resting'; self.aiCooldown = 1000;
+            }
+        } else if (self.aiCooldown <= 0) {
+            self.aiState = 'charging';
+            self.targetX = player.x; self.targetY = player.y;
+        }
+    },
+    finalJeongwoo: (self, dt) => {
+        if (!self.aiState) { self.aiState = 'CHASING'; self.aiCooldown = 2000; }
+        const jeongwooLines = ["돼지새기", "준영이 마음에 안 들어", "아오"];
+        switch (self.aiState) {
+            case 'CHASING':
+                const speed = (self.isItemSlowed ? self.speed * 0.5 : self.speed) * (dt / MS_PER_UPDATE);
+                const angle = Math.atan2(player.y - self.y, player.x - self.x);
+                self.x += Math.cos(angle) * speed; self.y += Math.sin(angle) * speed;
+                if(isColliding(player, self)) { player.takeDamage(10); }
+                if (self.aiCooldown <= 0) {
+                    const rand = Math.random();
+                    if (rand < 0.25) self.aiState = 'TELEPORT_WINDUP';
+                    else if (rand < 0.5) self.aiState = 'LASER_WINDUP';
+                    else if (rand < 0.75) self.aiState = 'SCATTER_WINDUP';
+                    else self.aiState = 'RUSH_WINDUP';
+                    self.aiCooldown = 1000;
+                }
+                break;
+            case 'TELEPORT_WINDUP':
+                self.dialogue = jeongwooLines[Math.floor(Math.random()*jeongwooLines.length)]; self.color = '#8B0000';
+                if (self.aiCooldown <= 0) {
+                    const angleToPlayer = Math.atan2(player.y - self.y, player.x - self.x);
+                    self.x = player.x - Math.cos(angleToPlayer) * 80; self.y = player.y - Math.sin(angleToPlayer) * 80;
+                    self.aiState = 'SCATTER_WINDUP'; self.color = '#B22222'; self.aiCooldown = 250;
+                }
+                break;
+            case 'LASER_WINDUP':
+                self.dialogue = "피할 수 있겠나!"; self.x = canvas.width / 2; self.y = 50;
+                if (self.aiCooldown <= 0) {
+                    self.aiState = 'LASER_ATTACK'; self.laserCount = 3; self.aiCooldown = 500;
+                }
+                break;
+            case 'LASER_ATTACK':
+                 if (self.aiCooldown <= 0 && self.laserCount > 0) {
+                    const laserAngle = Math.atan2(player.y - self.y, player.x - self.x);
+                    hazards.push(new Hazard({ x: self.x, y: self.y, angle: laserAngle, life: 667, draw: function() { ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle); ctx.fillStyle='rgba(255, 100, 100, 0.3)'; ctx.fillRect(0, -5, 1200, 10); ctx.restore(); }, action: function(h) { if (h.life <= dt) { hazards.push(new Hazard({ x: h.x, y: h.y, angle: h.angle, life: 333, damage: 20, draw: function() { ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle); ctx.fillStyle='red'; ctx.fillRect(0, -10, 1200, 20); ctx.restore(); }}));}}}));
+                    self.laserCount--; self.aiCooldown = 500;
+                }
+                if (self.laserCount <= 0) { self.aiState = 'RUSH_WINDUP'; self.aiCooldown = 500; }
+                break;
+            case 'SCATTER_WINDUP':
+                self.dialogue = jeongwooLines[Math.floor(Math.random()*jeongwooLines.length)]; self.color = '#FF4500';
+                if (self.aiCooldown <= 0) {
+                    for(let i = -3; i <= 3; i++) {
+                        const angle = Math.atan2(player.y - self.y, player.x - self.x) + i * 0.3;
+                        hazards.push(new Projectile({ x: self.x, y: self.y, size: 15, life: 2000, damage: 10, vx: Math.cos(angle) * 6, vy: Math.sin(angle) * 6, draw: function(){ ctx.fillStyle='orange'; ctx.fillRect(this.x, this.y, this.size, this.size); } }));
+                    }
+                    self.aiState = 'CHASING'; self.color = '#B22222'; self.aiCooldown = 2000;
+                }
+                break;
+            case 'RUSH_WINDUP':
+                self.dialogue = "아오!";
+                self.targetX = player.x < self.x ? -100 : canvas.width + 100;
+                self.targetY = self.y;
+                self.aiState = 'RUSHING';
+                break;
+            case 'RUSHING':
+                const rushSpeed = 20 * (dt / MS_PER_UPDATE);
+                const rushAngle = Math.atan2(self.targetY - self.y, self.targetX - self.x);
+                self.x += Math.cos(rushAngle) * rushSpeed;
+                if (isColliding(player, self)) player.takeDamage(20);
+                if (Math.random() < 0.2) { hazards.push(new Hazard({ x: self.x, y: self.y, radius: 1, life: 333, damage: 10, action: function(h, dt){ h.radius += 2 * (dt / MS_PER_UPDATE); }, draw: function(){ ctx.fillStyle='red'; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI); ctx.fill(); }})); }
+                if (Math.abs(self.x - self.targetX) < 50) {
+                     self.aiState = 'CHASING'; self.aiCooldown = 2000;
+                }
+                break;
+        }
+    },
+    finalYun상: (self, dt) => {
+        if(isColliding(player, self)) {
+            player.takeDamage(5);
+            if (!player.hoodieOn) {
+                jibun = Math.max(0.1, jibun - 0.2);
+                self.dialogue = "배 만지기 성공!";
+            }
+        } else {
+             self.dialogue = "";
+        }
+        if (self.aiCooldown <= 0) {
+            const attackType = Math.random();
+            if (attackType < 0.5) { hazards.push(new Hazard({ x: player.x, y: player.y, radius: 1, life: 750, damage: 20, action: function(h, dt){ h.radius += 5 * (dt / MS_PER_UPDATE); }, draw: function(){ ctx.strokeStyle='yellow'; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI); ctx.stroke(); }}));
+            } else {
+                for(let i = -1; i <= 1; i++) {
+                     const angle = Math.atan2(player.y - self.y, player.x - self.x) + i * 0.2;
+                     hazards.push(new Projectile({ x: self.x, y: self.y, size: 20, life: 5000, damage: 10, vx: Math.cos(angle) * 6, vy: Math.sin(angle) * 6, draw: function(){ ctx.fillStyle='gold'; ctx.fillRect(this.x, this.y, this.size, this.size); }}));
+                }
+            }
+            self.aiCooldown = 1167;
+        }
+        if (Math.random() < 0.08) { hazards.push(new Hazard({ x: Math.random() * canvas.width, y: -20, size: 40, vy: 8, life: 2000, damage: 15, draw: function(){ ctx.fillStyle='gold'; ctx.fillRect(this.x, this.y, this.size, this.size); } }));
+        }
+    },
+    ji원: (self, dt) => { 
+        const scale = dt / MS_PER_UPDATE;
+        self.y += self.speed * scale; self.x += self.dx * scale;
+        if(self.y < 0 || self.y > canvas.height - self.size) self.speed *= -1;
+        if(self.x < 600 || self.x > 900) self.dx *= -1;
+        if (self.aiCooldown <= 0) { 
+            hazards.push(new Hazard({ isJiwonAttack: true, x: self.x + self.size/2, y: self.y + self.size/2, radius: 1, life: 1500, action: function(h, dt){ h.radius += 3 * (dt / MS_PER_UPDATE); }, draw: function(){ ctx.strokeStyle='rgba(255, 105, 180, 0.5)'; ctx.lineWidth=10; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, 2*Math.PI); ctx.stroke(); if(this.life <= 333) { ctx.fillStyle='rgba(255, 105, 180, 0.7)'; ctx.fill(); } }})); 
+            self.aiCooldown = 2500; 
+        } 
+    },
+    yeo민: (self, dt) => {
+        if (isColliding(player, self)) player.takeDamage(10);
+        if (self.aiCooldown <= 0) {
+            const pattern = Math.random();
+            if (pattern < 0.4) {
+                for(let i=0; i < 8; i++) {
+                    const angle = (Math.PI*2/8) * i + (Date.now()/500);
+                    hazards.push(new Projectile({ x: self.x, y: self.y, size: 20, life: 4000, damage: 10, vx: Math.cos(angle) * 3, vy: Math.sin(angle) * 3, draw: function(){ ctx.fillStyle='white'; ctx.globalAlpha = this.life/4000; ctx.fillRect(this.x-this.size/2, this.y-this.size/2, this.size, this.size); ctx.globalAlpha = 1; } }));
+                }
+                self.aiCooldown = 333;
+            } else if (pattern < 0.8) {
+                hazards.push(new Hazard({ x: player.x, y: 0, w: 30, h: canvas.height, life: 1000, draw: function() { ctx.fillStyle='rgba(255, 100, 100, 0.3)'; ctx.fillRect(this.x, this.y, this.w, this.h); }, action: function(h, dt) { if (h.life <= dt) { hazards.push(new Hazard({ x: h.x, y: 0, w: 30, h: canvas.height, life: 333, damage: 20, draw: function() { ctx.fillStyle='red'; ctx.fillRect(this.x, this.y, this.w, this.h); }}));}}}));
+                self.aiCooldown = 1667;
+            } else {
+                for(let i = -2; i <= 2; i++) {
+                    const angle = Math.atan2(player.y - self.y, player.x - self.x) + i * 0.3;
+                    hazards.push(new Projectile({ x: self.x, y: self.y, size: 15, life: 3000, damage: 10, vx: Math.cos(angle) * 4, vy: Math.sin(angle) * 4, draw: function(){ ctx.fillStyle='white'; ctx.fillRect(this.x, this.y, this.size, this.size); } }));
+                }
+                self.aiCooldown = 1333;
+            }
+        }
+    }
+};
+
+// --- Item & Stage Data ---
+const items = [
+    { id: 'speed', name: '신속 포션', cost: 3.0, desc: '15초간 이속 증가', effect: () => { player.isBoosted = true; setTimeout(() => { player.isBoosted = false; }, 15000); } },
+    { id: 'slow', name: '둔화 장치', cost: 5.0, desc: '10초간 모든 적 둔화', effect: () => { enemies.forEach(e => { e.isItemSlowed = true; setTimeout(() => { e.isItemSlowed = false; }, 10000); }); } },
+    { id: 'heal', name: '회복 물약', cost: 8.0, desc: '체력 모두 회복', effect: () => { player.hp = player.maxHp; } },
+    { id: 'invincible', name: '무적 후드', cost: 12.0, desc: '5초간 완벽 무적', effect: () => { player.hoodieOn = true; setTimeout(() => { player.hoodieOn = false; }, 5000); } },
+];
+const tutorialStageConfig = {
+    type: 'tutorial', skippable: true, goal: "조작법을 익히세요!",
+    briefing: `"일단... 여기서 조작법부터 익히고 가자."`,
+    setup: () => { tutorialStep = 0; tutorialHasBeenPaused = false; },
+    jibunReward: 1, defeatName: "조작 미숙", clearMessage: "이제 시작이군..."
+};
+const stages = [
+    { type: 'survive', skippable: true, goal: "고현서의 추격으로부터 20초간 버티세요!", briefing: `Justin Ko: "오우~, 뽀삐. 어디 가?"`, duration: 20000, setup: () => { enemies.push(new Enemy({x:800, y:300, size:40, color:'#FFC0CB', hp:9999, speed:4.5, name:'Justin Ko', ai:AIs.chase})); }, jibunReward: 5, defeatName: "고현서", clearMessage: "휴... 겨우 따돌렸다." },
+    { type: 'defeatAll', skippable: true, goal: "돌진하는 남윤찬을 물리치세요!", briefing: `남윤찬: "엥? 신났냐? 깝싸냐?"`, setup: () => { enemies.push(new Enemy({x:800, y:300, size:40, color:'#ADD8E6', hp:200, speed:3, name:'남윤찬', ai:AIs.yoonchanCharge, aiState:'resting'})); stageObjects.push({totalEnemies: 1}); }, jibunReward: 8, defeatName: "남윤찬", clearMessage: "어깨만큼 약하잖아?" },
+    { type: 'quiz', skippable: true, goal: "위준의 퀴즈를 모두 맞추세요!", briefing: `위준: "내 모든 것을 맞추는 자만이 지나갈 수 있다."`, setup: () => { stageObjects.push({ currentQ: 0, questions: [ { q: "위준의 생일은?", o: ["7월 3일", "6월 6일", "3월 7일", "1월 1일"], a: "7월 3일" }, { q: "위준이 좋아하는 색은?", o: ["빨강", "파랑", "검정", "노랑"], a: "검정" }, { q: "위준이 좋아하는 동물은?", o: ["강아지", "고양이", "호랑이", "래서판다"], a: "래서판다" }, { q: "위준이 좋아하는 숫자는?", o: ["7", "13", "1004", "666"], a: "666" } ] }); startQuiz(); }, jibunReward: 10, defeatName: "위준", clearMessage: "이 정도는 상식이지." },
+    { type: 'dinoRunner', skippable: true, goal: "쏟아지는 말장난을 30초간 피하세요!", briefing: `정지안: "뽀뽀? 삐삐? 삠삐? 받아라!"`, duration: 30000, setup: () => { stageObjects.push({ spawnTimer: 0, words: ['뽀뽀', '삐삐', '삠삐', '돼지!', '개돼지', '광견병!', '물어와!', '오우~준벨리', '엥?', '신났냐', '깝싸냐', '왜 내가 1대장이 아닌데?']}); }, jibunReward: 10, defeatName: "정지안", clearMessage: "말장난은 이제 그만!" },
+    { type: 'reachGoal', skippable: true, goal: "박지원의 샤우팅을 피해 탈출하세요!", briefing: `박지원: "뽀삐이이이이~~~~~!!!" (샤우팅은 즉사다!)`, setup: () => { enemies.push(new Enemy({x: 800, y: 50, size: 50, color: '#FF69B4', hp: 9999, speed: 2, name: '박지원', ai: AIs.ji원, dx: 1.5})); missionTracker.textContent = "5초 후 문이 열린다! 버텨라!"; setTimeout(() => { if(gameState === 'playing') { stageObjects.push({ type: 'goal', name: '문', x: canvas.width - 20, y: 0, w: 20, h: canvas.height, color: 'rgba(0, 255, 0, 0.3)'}); missionTracker.textContent = "문이 열렸다! 탈출하라!"; }}, 5000);}, jibunReward: 8, defeatName: "박지원", clearMessage: "시끄러운 애를 피했다!" },
+    { type: 'volleyball', skippable: true, goal: "김지훈과의 뽀삐 배구에서 3점을 먼저 내세요!", briefing: `김지훈: "배구 한 판? 지는 사람이 지분 뺏기는 거다."`, setup: () => { stageObjects.push({ p1Score: 0, p2Score: 0, ball: {x: 200, y: 100, vx: 3, vy: -6, size: 20}, p2: {x: 750, y: canvas.height - 40, size: 40, vy:0}, net: {x: canvas.width/2 - 5, y: canvas.height - 200, w: 10, h: 200}}); player.vy = 0; }, jibunReward: 10, defeatName: "김지훈", clearMessage: "내가 배구 짱이다." },
+    { type: 'timer', skippable: true, goal: "15초에 맞춰 스페이스바를 누르세요!", briefing: `김주희 선생님: "이번 수행평가는 시간 관리 능력이다.\n타이머가 보일테니, 정확히 15초에 스페이스바를 눌러라. (오차 ±0.15초)"`, setup: () => { stageObjects.push({ startTime: Date.now() }); }, jibunReward: 8, defeatName: "김주희 선생님", clearMessage: "시간 관리의 신, 그게 바로 나다." },
+    { type: 'whackAMole', skippable: true, goal: "김은성을 5번 잡아 실내화를 되찾으세요!", briefing: `김은성: "광견병! 네 실내화, 찾아보시지!\n나타나면 다가가서 공격 키(1 또는 2)를 눌러라!"`, duration: 35000, setup: () => { stageObjects.push({ score: 0, targetScore: 5, moleTimer: 1000, activeMole: -1, deskPositions: [ {x:100, y:100}, {x:450, y:100}, {x:800, y:100}, {x:100, y:400}, {x:450, y:400}, {x:800, y:400} ] }); }, jibunReward: 10.9, defeatName: "김은성", clearMessage: "내 실내화는 소중하다고!" },
+    { type: 'bulletHell', skippable: true, goal: "윤여민의 포토 타임에서 30초간 살아남으세요!", briefing: `윤여민: "애들아, 왜 그러는 거야? ...나도 껴줘야지! (찰칵찰칵)"`, duration: 30000, setup: () => { enemies.push(new Enemy({x:canvas.width/2, y:50, size:40, color:'teal', hp:9999, speed:0, name:'윤여민', ai:AIs.yeo민})); }, jibunReward: 10, defeatName: "윤여민", clearMessage: "사진 그만 찍어!" },
+    { type: 'survive', skippable: true, goal: "3대장 No.2 박정우의 공격에서 살아남으세요!", briefing: `박정우: "왜 내가 1대장이 아닌데? 진정한 1대장의 힘을 보여주지!"`, duration: 45000, setup: () => { enemies.push(new Enemy({x:500, y:50, size:55, color:'#B22222', hp:9999, speed:3.5, name:'박정우', ai:AIs.finalJeongwoo})); }, jibunReward: 10, defeatName: "박정우", clearMessage: "진정한 1대장은 나, 뽀삐다!" },
+    { type: 'survive', skippable: true, goal: "3대장 No.1 안윤상의 억까 공격에서 살아남으세요!", briefing: `안윤상: "돼지야, 인생 쉽노. 나의 억까 공격을 버텨봐라!"`, duration: 30000, setup: () => { enemies.push(new Enemy({x:500, y:300, size:60, color:'#FFD700', hp:9999, speed:1, name:'안윤상', ai:AIs.finalYun상})); }, jibunReward: 10, defeatName: "안윤상", clearMessage: "네 억까도 별거 아니네." },
+    { type: 'event', skippable: false, goal: "급식실의 함정을 통과하세요!", briefing: `급식실: "어라, 희철이가 급식실에 나타났다!"`, setup: startCafeteriaEvent, jibunReward: 0, defeatName: "안윤상" },
+];
+let allyStageConfig = {
+    type: 'ally', skippable: true, goal: "최인영의 도움을 받아 적들을 모두 물리치세요!",
+    briefing: `최인영: "준영, 동신에서 유일한 네 친구가 왔다! 내가 도와줄게!"`,
+    setup: () => {
+        const bullyNames = ["안윤상", "김은성", "박정우", "남윤찬", "고현서", "윤여민", "위준", "박윤재"];
+        bullyNames.forEach((name, i) => {
+            enemies.push(new Enemy({x: 800, y: 40 + i*70, size: 30, color: 'gray', hp: 30, speed: 2.5, name: name, ai: AIs.chase}));
+        });
+        npcs.push({x: 150, y: 300, size: 40, color: 'lightgreen', name: '최인영', aiCooldown: 0,
+            update: function(dt){ if(this.aiCooldown <= 0) { const target = enemies.find(e => e.hp > 0); if(target) { const angle = Math.atan2(target.y - this.y, target.x - this.x); projectiles.push(new Projectile({x:this.x, y:this.y, size:15, life:3000, damage:15, vx:Math.cos(angle)*6, vy:Math.sin(angle)*6, color:'lime', draw: function(){ctx.fillStyle=this.color; ctx.beginPath(); ctx.arc(this.x,this.y,this.size/2,0,2*Math.PI); ctx.fill();}})); this.aiCooldown = 1000; } } else { this.aiCooldown -= dt; } },
+            draw: function(){ ctx.fillStyle=this.color; ctx.fillRect(this.x, this.y, this.size, this.size); ctx.fillStyle='white'; ctx.textAlign='center'; ctx.fillText(this.name, this.x+this.size/2, this.y-10); }
+        });
+        stageObjects.push({totalEnemies: 8});
+    },
+    jibunReward: 10, defeatName: "괴롭히는 애들"
+};
+const parkJonghyunQuizStage = {
+    type: 'quiz', skippable: true, goal: "박종현의 퀴즈를 모두 맞추세요!", briefing: `박종현: "허허허... 오옥따... 내 퀴즈를 맞혀보아라. 다 맞추면 내려줄지 생각해볼게."`,
+    preStageCutscene: playJonghyunCutscene,
+    setup: () => {
+        stageObjects.push({ currentQ: 0, questions: [
+            { q: "박종현의 생일은?", o: ["1월 23일", "2월 13일", "12월 25일", "4월 1일"], a: "1월 23일" },
+            { q: "박종현이 좋아하는 색은?", o: ["노랑, 초록", "검정, 흰색", "빨강, 파랑", "주황, 보라"], a: "빨강, 파랑" },
+            { q: "박종현이 좋아하는 동물은?", o: ["강아지", "호랑이", "고양이", "래서판다"], a: "호랑이" },
+            { q: "박종현이 좋아하는 숫자는?", o: ["7", "13", "41", "1004"], a: "41" }
+        ]});
+        startQuiz();
+    },
+    jibunReward: 10, defeatName: "박종현", clearMessage: "퀴즈를 다 맞혔으니 이제 내려줘!"
+};
+stages.unshift(tutorialStageConfig);
+stages.splice(7, 0, allyStageConfig);
+stages.splice(9, 0, parkJonghyunQuizStage);
+
+// --- Core Game Functions ---
+function init() {
+    startGameButton.addEventListener('click', () => {
+        startScreen.style.display = 'none'; gameWrapper.style.display = 'block';
+        player = new Player(100, 300);
+        showMessageBox("인트로", "3대장과 친구들이 당신의 지분 99.9%를 강탈해갔다!\n그들의 방해를 뚫고 모든 지분을 되찾아라!", "되찾으러 가자", loadStage);
+    });
+}
+function loadStage() {
+    messageChoices.innerHTML = '';
+    [enemies, projectiles, npcs, hazards, stageObjects] = [[], [], [], [], []];
+    player.x = 100; player.y = 300; player.hp = player.maxHp; player.isBoosted = false; player.isSlowed = false;
+    showEventText(Math.random() < 0.5 ? '차한빈: "예아"' : '박종현: "오옥따... 허허허..."');
+
+    if (currentStage >= stages.length) {
+        if (jibun < 100) { startRPSGame(); return; }
+        showMessageBox("어라...?", "100%를 다 채웠는데...\n왜 게임이 끝나지 않지?", "...", startFinalBoss);
+        return;
+    }
+    currentStageConfig = stages[currentStage];
+    
+    let stageTitle = currentStage === 0 ? "튜토리얼" : `Stage ${currentStage}`;
+    showMessageBox(stageTitle, currentStageConfig.briefing, "시작!", () => {
+        if (currentStageConfig.preStageCutscene) {
+            currentStageConfig.preStageCutscene();
+        } else {
+            currentStageConfig.setup();
+            if (currentStageConfig.type !== 'event' && currentStageConfig.type !== 'quiz') {
+                gameState = 'playing';
+            }
+        }
+        if (currentStageConfig.duration) stageTimer = currentStageConfig.duration;
+    });
+}
+function startFinalBoss() {
+    currentStageConfig = { 
+        type: 'memoryGame', skippable: false, 
+        goal: "윤희철의 친한 척을 7번 막아내세요!", 
+        defeatName: "윤희철",
+        setup: () => {
+            stageObjects.push({
+                successCount: 0, target: 7, timer: 2000, timeToReact: 750, status: 'hiding',
+                prompts: [
+                    { q: "준영, 뭐해?", a: '1' },
+                    { q: "준영, 우리 수행평가 뭐야?", a: '2' },
+                    { q: "준영, 나 생명 필기 좀 보여줘", a: '3' },
+                ],
+                currentPrompt: null,
+                heechul: new Enemy({x: -100, y: -100, size: 45, color: '#4B0082', hp:9999, speed:0, name:'윤희철', ai:()=>{}})
+            });
+        }
+    };
+    showMessageBox("Hidden Stage", `윤희철: "준영, 뭐해?" (공포의 친한 척)`, "시작!", () => {
+        currentStageConfig.setup();
+        gameState = 'playing';
+        heechulTimer = setInterval(() => {
+            if (gameState === 'playing') {
+                jibun -= 1;
+                if (jibun <= 0) { jibun = 0; gameOver("윤희철의 영원한 필기 셔틀"); }
+            }
+        }, 1000);
+    });
+}
+function stageClear() {
+    if (gameState === 'gameOver' || gameState === 'stageClear') return;
+    gameState = 'stageClear';
+
+    jibun = Math.min(100, jibun + currentStageConfig.jibunReward);
+
+    const specialEndings = {
+        'ally': () => {
+            showMessageBox("스테이지 클리어", `최인영: "준영, 우리 친하지?"\n뽀삐: "왜 이래, 꺼져."`, "다음으로", () => { currentStage++; loadStage(); });
+        }
+    };
+    if(specialEndings[currentStageConfig.type]) {
+        specialEndings[currentStageConfig.type]();
+    } else {
+        showMessageBox("미션 성공!", currentStageConfig.clearMessage || `지분 ${currentStageConfig.jibunReward.toFixed(1)}% 획득!`, "다음으로", () => { currentStage++; loadStage(); });
+    }
+}
+function gameOver(enemyName) {
+    gameState = 'gameOver';
+    if(heechulTimer) { clearInterval(heechulTimer); heechulTimer = null; }
+
+    if (enemyName === "박정우") {
+        gameWrapper.style.backgroundImage = `url(${jeongwooDefeatBg.src})`;
+        canvas.style.display = 'none';
+    }
+
+    let message = enemyName === "윤희철의 영원한 필기 셔틀"
+        ? `오 마이 카미사마, 뽀삐는 ${enemyName}이 되었습니다...`
+        : `오 마이 카미사마, 뽀삐는 ${enemyName}의 것입니다...`;
+
+    showMessageBox("게임 오버", message, "", () => {}, true);
+    messageButton.style.display = 'none';
+    messageChoices.innerHTML = '';
+
+    const retryBtn = document.createElement('button');
+    retryBtn.textContent = '스테이지 재시도';
+    retryBtn.className = 'choice-btn';
+    retryBtn.onclick = () => {
+        messageBox.style.display = 'none';
+        canvas.style.display = 'block';
+        gameWrapper.style.backgroundImage = '';
+
+        if (enemyName === "윤희철의 영원한 필기 셔틀") {
+            jibun = 100;
+            player.hp = player.maxHp;
+            startFinalBoss();
+        } else {
+            loadStage();
+        }
+    };
+    messageChoices.appendChild(retryBtn);
+
+    const restartBtn = document.createElement('button');
+    restartBtn.textContent = '처음부터 다시';
+    restartBtn.className = 'choice-btn';
+    restartBtn.style.backgroundColor = '#888';
+    restartBtn.onclick = () => {
+        window.location.reload();
+    };
+    messageChoices.appendChild(restartBtn);
+}
+
+// --- Event & Minigame Functions ---
+function playJonghyunCutscene() {
+    gameState = 'cutscene';
+    cutsceneState = {
+        active: true,
+        phase: 1,
+        timer: 2000, // 2 seconds
+        img: jonghyunImg1,
+        text: "어라?"
+    };
+}
+function startQuiz() {
+    gameState = 'dialogue';
+    const quizData = stageObjects[0];
+    if (!quizData || quizData.currentQ >= quizData.questions.length) {
+        stageClear();
+        return;
+    }
+    const qData = quizData.questions[quizData.currentQ];
+    
+    showMessageBox(`퀴즈 ${quizData.currentQ + 1}/${quizData.questions.length}`, qData.q, "", () => {}, true);
+    
+    messageChoices.innerHTML = '';
+    qData.o.forEach(option => {
+        const btn = document.createElement('button');
+        btn.textContent = option; btn.className = 'choice-btn';
+        btn.onclick = () => {
+            if (option === qData.a) {
+                quizData.currentQ++;
+                startQuiz();
+            } else {
+                gameOver(currentStageConfig.defeatName);
+            }
+        };
+        messageChoices.appendChild(btn);
+    });
+    messageButton.style.display = 'none';
+}
+function startCafeteriaEvent() {
+    gameState = 'event';
+    const heechulPos = Math.ceil(Math.random() * 10);
+    const text = `윤희철이 급식줄 어딘가에 서있다!\n지분을 지불하고 사람들을 앞질러 그를 피하세요. (1명당 지분 1% 소모)`;
+    
+    showMessageBox("급식실의 함정", text, "", () => {}, true);
+    messageChoices.innerHTML = '';
+    for(let i = 1; i <= 10; i++) {
+        const btn = document.createElement('button');
+        btn.textContent = `${i}명 (${i}%)`; btn.className = 'choice-btn';
+        if(jibun - i < 0.1) btn.disabled = true;
+        btn.onclick = () => {
+             messageChoices.innerHTML = '';
+             messageButton.style.display = 'block';
+             showEventText(`안윤상이 나타나 지분 ${i}%를 뺏어갔다!`);
+             jibun -= i;
+             if (i >= heechulPos) { showMessageBox("성공...?", `당신은 희철이를 무사히 지나쳤습니다!\n(희철이는 ${heechulPos}번째에 있었습니다.)`, "다음으로", () => { currentStage++; loadStage(); }); }
+             else { showMessageBox("실패!", `결국 희철이와 마주치고 말았다...\n(희철이는 ${heechulPos}번째에 있었습니다.)`, "...", startFinalBoss); }
+        };
+        messageChoices.appendChild(btn);
+    }
+    messageButton.style.display = 'none';
+}
+function startRPSGame() {
+    gameState = 'event';
+    const choices = ['가위', '바위', '보'];
+    const betAmount = Math.min(10, Math.ceil(100 - jibun));
+
+    showMessageBox("안윤상과의 한판 승부", `안윤상: "지분 100%가 아니잖아, 돼지야. ${betAmount}% 걸고 한판 ㄱ?"`, "", () => {}, true);
+    messageChoices.innerHTML = '';
+    choices.forEach(choice => {
+        const btn = document.createElement('button'); btn.textContent = choice; btn.className = 'choice-btn';
+        btn.onclick = () => playRPS(choice, choices[Math.floor(Math.random()*3)], betAmount);
+        messageChoices.appendChild(btn);
+    });
+    const finishBtn = document.createElement('button'); finishBtn.textContent = '그만하기'; finishBtn.className = 'choice-btn';
+    finishBtn.style.backgroundColor = '#888';
+    finishBtn.onclick = () => { showMessageBox("포기", "결국 지분을 모두 채우지 못하고 찝찝하게 끝났다...", "엔딩(?)", () => window.location.reload()); };
+    messageChoices.appendChild(finishBtn);
+    messageButton.style.display = 'none';
+}
+function playRPS(playerChoice, computerChoice, betAmount) {
+    let resultText = `안윤상은 [${computerChoice}]를 냈다!\n`;
+    if (playerChoice === computerChoice) { resultText += "비겼다. 아무 일도 없었다.";
+    } else if ((playerChoice === '가위' && computerChoice === '보') || (playerChoice === '바위' && computerChoice === '가위') || (playerChoice === '보' && computerChoice === '바위')) {
+        resultText += `이겼다! 지분 ${betAmount}%를 획득했다!`; 
+        jibun = Math.min(100, jibun + betAmount);
+    } else {
+        resultText += `졌다... 지분 ${betAmount}%를 빼앗겼다...`; 
+        jibun = Math.max(0.1, jibun - betAmount);
+    }
+    updateUI();
+
+    if (jibun >= 100) {
+        showMessageBox("100% 달성!", "드디어 모든 지분을 되찾았다!", "최종 결전으로", startFinalBoss);
+    } else {
+        showMessageBox("가위바위보 결과", resultText, "다시 하기", startRPSGame);
+    }
+}
+
+// --- Item Shop ---
+function renderItemShop() {
+    pauseJibun.textContent = jibun.toFixed(1); itemShopContainer.innerHTML = '';
+    items.forEach(item => {
+        const itemDiv = document.createElement('div'); itemDiv.className = 'item';
+        itemDiv.innerHTML = `<div class="item-desc"><div class="item-name">${item.name} (${item.cost.toFixed(1)}%)</div><div style="font-size: 14px; color: #ccc;">${item.desc}</div></div>`;
+        const buyBtn = document.createElement('button'); buyBtn.textContent = '구매'; buyBtn.className = 'item-buy-btn';
+        buyBtn.disabled = jibun - item.cost < 0.1;
+        buyBtn.onclick = (e) => { e.stopPropagation(); buyItem(item.id); };
+        itemDiv.appendChild(buyBtn); itemShopContainer.appendChild(itemDiv);
+    });
+}
+function buyItem(itemId) {
+    const item = items.find(i => i.id === itemId);
+    if (jibun - item.cost >= 0.1) { jibun -= item.cost; item.effect(); renderItemShop(); showEventText(`[${item.name}] 사용! 안윤상이 지분을 받고 흡족해합니다.`); }
+}
+
+// --- Game Loop ---
+function updateCutscene(dt) {
+    cutsceneState.timer -= dt;
+    if (cutsceneState.timer <= 0) {
+        if (cutsceneState.phase === 1) {
+            cutsceneState.phase = 2;
+            cutsceneState.timer = 4000; // 4 seconds
+            cutsceneState.img = jonghyunImg2;
+            cutsceneState.text = "박종현이 마법을 걸었다!";
+        } else {
+            cutsceneState.active = false;
+            currentStageConfig.setup();
+        }
+    }
+}
+function gameLoop(timestamp) { 
+    const dt = timestamp - lastTime;
+    lastTime = timestamp;
+
+    if (gameState === 'playing') update(dt);
+    if (gameState === 'cutscene') updateCutscene(dt);
+    draw();
+    fpsDisplay.textContent = `FPS: ${Math.round(1000 / dt)}`;
+    requestAnimationFrame(gameLoop);
+}
+function update(dt) {
+    if (!currentStageConfig) return;
+    if (gameState !== 'finalVictoryPending') player.update(dt);
+    [...enemies, ...projectiles, ...npcs, ...hazards].forEach(obj => obj.update && obj.update(dt));
+
+    projectiles.forEach((proj) => {
+        enemies.forEach((enemy, enemyIndex) => {
+            if (isColliding(proj, enemy)) { 
+                enemy.takeDamage(proj.damage); 
+                enemy.flashFrames = 167; // 0.167초
+                if (enemy.hp <= 0) enemies.splice(enemyIndex, 1); 
+                if (!proj.piercing) proj.life=0; 
+            }
+        });
+    });
+    hazards.forEach(h => {
+        let collision = false;
+        if (h.isJiwonAttack) {
+            const playerCenterX = player.x + player.size / 2;
+            const playerCenterY = player.y + player.size / 2;
+            const dist = Math.hypot(playerCenterX - h.x, playerCenterY - h.y);
+            if (h.life <= 333 && dist < h.radius + player.size/2) {
+                gameOver(currentStageConfig.defeatName);
+                return;
+            }
+        }
+        else if (h.radius) {
+            const playerCenterX = player.x + player.size / 2;
+            const playerCenterY = player.y + player.size / 2;
+            const dist = Math.hypot(playerCenterX - h.x, playerCenterY - h.y);
+            if (dist < h.radius + player.size / 2) collision = true;
+        } else {
+            if(isColliding(h, player)) collision = true;
+        }
+        if (collision) player.takeDamage(h.damage || 10);
+    });
+    
+    const { type } = currentStageConfig;
+    if (type === 'tutorial') {
+        const prompts = [ "방향키(↑↓←→)로 자유롭게 움직여보세요.", "1번 키를 눌러 [앞 손 휘젓기] 공격!", "2번 키를 눌러 강력한 [발차기] 공격!", "3번 키로 잠시 무적이 되는 [후드 쓰기]!", "Shift 키를 눌러 [일시정지/상점]을 열고, 다시 눌러 닫아보세요.", "좋아요! 참고로 0번 키는 스테이지 스킵입니다. 이제 오른쪽 문으로 나가세요!" ];
+        missionTracker.textContent = prompts[tutorialStep] || "";
+        if (tutorialStep === 0 && (keys['ArrowUp'] || keys['ArrowDown'] || keys['ArrowLeft'] || keys['ArrowRight'])) tutorialStep++;
+        else if (tutorialStep === 1 && keys['1']) tutorialStep++;
+        else if (tutorialStep === 2 && keys['2']) tutorialStep++;
+        else if (tutorialStep === 3 && keys['3']) tutorialStep++;
+        else if (tutorialStep === 4 && tutorialHasBeenPaused) {
+            tutorialStep++;
+            stageObjects.push({ type: 'goal', x: canvas.width-20, y: 0, w: 20, h: canvas.height, color: 'rgba(0, 255, 0, 0.3)'});
+        }
+        if (tutorialStep === 5 && stageObjects[0] && isColliding(player, stageObjects[0])) stageClear();
+    }
+    else if (type === 'survive' || type === 'bulletHell' || type === 'dinoRunner') {
+        stageTimer -= dt; if (stageTimer <= 0) stageClear();
+        missionTracker.textContent = `남은 시간: ${(stageTimer / 1000).toFixed(1)}초`;
+        if (type === 'dinoRunner') {
+            const config = stageObjects[0];
+            config.spawnTimer -= dt;
+            if (config.spawnTimer <= 0) {
+                const randomY1 = 30 + Math.random() * (canvas.height - 60);
+                const randomWord1 = config.words[Math.floor(Math.random() * config.words.length)];
+                const randomSpeed1 = 10 + Math.random() * 12;
+                hazards.push(new TextObstacle(randomY1, randomWord1, randomSpeed1));
+                if (Math.random() < 0.25) {
+                    const randomY2 = 30 + Math.random() * (canvas.height - 60);
+                    if (Math.abs(randomY1 - randomY2) > 50) {
+                         const randomWord2 = config.words[Math.floor(Math.random() * config.words.length)];
+                         const randomSpeed2 = 10 + Math.random() * 12;
+                         hazards.push(new TextObstacle(randomY2, randomWord2, randomSpeed2));
+                    }
+                }
+                config.spawnTimer = 80 + Math.random() * 160;
+            }
+        }
+    }
+    else if ((type === 'defeatAll' || type === 'ally')) {
+        if(enemies.length === 0 && gameState === 'playing') stageClear();
+        missionTracker.textContent = `남은 적: ${enemies.length}/${stageObjects[0].totalEnemies}`;
+    }
+    else if (type === 'reachGoal') {
+        if (stageObjects.length > 0 && stageObjects[0].type === 'goal' && isColliding(player, stageObjects[0])) stageClear();
+    }
+    else if (type === 'whackAMole') {
+        stageTimer -= dt;
+        if (stageTimer <= 0) { gameOver(currentStageConfig.defeatName); return; }
+        const state = stageObjects[0];
+        state.moleTimer -= dt;
+        if (state.moleTimer <= 0) {
+            let newMole;
+            do { newMole = Math.floor(Math.random() * state.deskPositions.length); } while (newMole === state.activeMole);
+            state.activeMole = newMole;
+            state.moleTimer = 1000 + Math.random() * 667;
+        }
+        if ((keys['1'] || keys['2']) && player.attack1Cooldown <= 0) {
+            player.attack1Cooldown = 250;
+            const activeDesk = state.deskPositions[state.activeMole];
+            if (state.activeMole !== -1 && isColliding(player, {x: activeDesk.x - 15, y: activeDesk.y - 15, size: 130})) {
+                state.score++;
+                state.activeMole = -1;
+                state.moleTimer = 333;
+                if (state.score >= state.targetScore) stageClear();
+            }
+        }
+        missionTracker.textContent = `잡은 횟수: ${state.score}/${state.targetScore} | 남은시간: ${(stageTimer/60).toFixed(1)}초`;
+    }
+    else if (type === 'volleyball') updateVolleyball();
+    else if (type === 'timer') {
+        const elapsed = (Date.now() - stageObjects[0].startTime) / 1000;
+        missionTracker.textContent = `경과 시간: ${elapsed.toFixed(3)}초`;
+    }
+    else if (type === 'memoryGame') {
+        const state = stageObjects[0];
+        state.timer -= dt;
+        if (state.status === 'hiding' && state.timer <= 0) {
+            state.status = 'showing';
+            const promptIndex = Math.floor(Math.random() * state.prompts.length);
+            state.currentPrompt = state.prompts[promptIndex];
+            state.timer = state.timeToReact;
+            state.heechul.x = 100 + Math.random() * (canvas.width - 200);
+            state.heechul.y = 100 + Math.random() * (canvas.height - 200);
+            state.heechul.dialogue = state.currentPrompt.q;
+        } else if (state.status === 'showing') {
+            let correctKey = state.currentPrompt.a;
+            let pressedKey = null;
+            if (keys['1']) pressedKey = '1'; if (keys['2']) pressedKey = '2'; if (keys['3']) pressedKey = '3';
+
+            if (pressedKey) {
+                if (pressedKey === correctKey) { state.successCount++; } 
+                else { jibun = Math.max(0.1, jibun - 10); }
+                state.status = 'hiding'; state.timer = 1000; state.heechul.dialogue = "";
+            } else if (state.timer <= 0) {
+                jibun = Math.max(0.1, jibun - 10);
+                state.status = 'hiding'; state.timer = 1000; state.heechul.dialogue = "";
+            }
+        }
+        if (state.successCount >= state.target) {
+            clearInterval(heechulTimer); heechulTimer = null;
+            gameState = 'finalVictoryPending';
+            missionTracker.textContent = "드디어... 모든 것이 끝났다. [0] 키를 눌러 휴식하기";
+        } else {
+             missionTracker.textContent = `성공: ${state.successCount} / ${state.target}`;
+        }
+    }
+    
+    updateUI();
+    projectiles = projectiles.filter(p => p.life > 0);
+    hazards = hazards.filter(h => h.life > 0);
+}
+
+function updateVolleyball(dt) {
+    let state = stageObjects[0];
+    const scale = dt / MS_PER_UPDATE;
+
+    player.vy += 0.5 * scale;
+    if (player.y + player.size >= canvas.height && player.vy > 0) { player.y = canvas.height - player.size; player.vy = 0; }
+    if (keys['ArrowUp'] && player.y + player.size >= canvas.height) player.vy = -14;
+    if (keys['ArrowLeft']) player.x -= 10 * scale; 
+    if (keys['ArrowRight']) player.x += 10 * scale;
+    player.y += player.vy * scale; 
+    player.x = Math.max(0, Math.min(state.net.x - player.size, player.x));
+    
+    state.p2.x += (state.ball.x > state.p2.x + state.p2.size / 2 ? 1 : -1) * 6 * scale;
+    state.p2.x = Math.max(state.net.x + state.net.w, state.p2.x);
+    state.p2.x = Math.min(canvas.width - state.p2.size, state.p2.x);
+
+    if (state.ball.x > state.net.x && state.ball.y > 200 && Math.abs(state.ball.x - state.p2.x) < 50 && state.p2.y + state.p2.size >= canvas.height) state.p2.vy = -14;
+    state.p2.vy += 0.5 * scale; 
+    state.p2.y += state.p2.vy * scale;
+    if (state.p2.y + state.p2.size >= canvas.height && state.p2.vy > 0) { state.p2.y = canvas.height - state.p2.size; state.p2.vy = 0; }
+    
+    state.ball.vy += 0.2 * scale; 
+    state.ball.x += state.ball.vx * scale; 
+    state.ball.y += state.ball.vy * scale;
+    if (state.ball.x < 0 || state.ball.x > canvas.width) state.ball.vx *= -1;
+
+    const checkHit = (p, b) => { 
+        const dist = Math.hypot(p.x + p.size / 2 - b.x, p.y + p.size / 2 - b.y); 
+        if (dist < p.size / 2 + b.size / 2) { 
+            b.vx = (b.x - (p.x + p.size / 2)) * 0.4 * scale;
+            b.vy = -11;
+        }
+    };
+    checkHit(player, state.ball); 
+    checkHit(state.p2, state.ball);
+
+    if (isColliding(state.ball, state.net)) { 
+        state.ball.vx *= -1.1 * scale; 
+        state.ball.x += state.ball.vx > 0 ? 5 : -5; 
+    }
+
+    if (state.ball.y > canvas.height) {
+        if (state.ball.x < canvas.width / 2) state.p2Score++; else state.p1Score++;
+        state.ball = { x: state.ball.x < canvas.width / 2 ? 700 : 200, y: 100, vx: (state.ball.x < canvas.width / 2 ? -3 : 3), vy: -6, size: 20 };
+        if (state.p1Score >= 3) stageClear(); 
+        if (state.p2Score >= 3) gameOver(currentStageConfig.defeatName);
+    }
+    missionTracker.textContent = `스코어: ${state.p1Score} : ${state.p2Score}`;
+}
+
+
+function draw() {
+    const bg = currentStageConfig && (currentStageConfig.type === 'finalBoss' || currentStageConfig.type === 'memoryGame') ? (Math.floor(Date.now() / 5000) % 2 === 0 ? classroom1Bg : classroom2Bg) : null;
+    if (bg && bg.complete) { ctx.drawImage(bg, 0, 0, canvas.width, canvas.height); }
+    else { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+    if (cutsceneState.active) {
+        if(cutsceneState.img.complete) ctx.drawImage(cutsceneState.img, 0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 48px Noto Sans KR';
+        ctx.shadowColor = 'black';
+        ctx.shadowBlur = 10;
+        ctx.fillText(cutsceneState.text, canvas.width / 2, canvas.height - 50);
+        ctx.shadowBlur = 0;
+        return;
+    }
+
+    if (gameState !== 'startScreen' && player) {
+        if(currentStageConfig && currentStageConfig.type === 'volleyball' && stageObjects.length > 0) { let s = stageObjects[0]; ctx.fillStyle = '#654321'; ctx.fillRect(s.net.x, s.net.y, s.net.w, s.net.h); ctx.fillStyle = 'red'; ctx.fillRect(s.p2.x, s.p2.y, s.p2.size, s.p2.size); ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(s.ball.x, s.ball.y, s.ball.size/2, 0, 2*Math.PI); ctx.fill(); }
+        if(currentStageConfig && currentStageConfig.type === 'whackAMole' && stageObjects.length > 0) {
+            const state = stageObjects[0];
+            state.deskPositions.forEach((pos, index) => {
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(pos.x, pos.y, 100, 80);
+                if (index === state.activeMole) {
+                    ctx.fillStyle = '#654321';
+                    ctx.fillRect(pos.x + 25, pos.y - 30, 50, 50);
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(pos.x + 40, pos.y + 10, 20, 10);
+                }
+            });
+        }
+        if (currentStageConfig && currentStageConfig.type === 'memoryGame' && stageObjects.length > 0) {
+            const state = stageObjects[0];
+            ctx.fillStyle = 'white'; ctx.font = '24px Noto Sans KR'; ctx.textAlign = 'center';
+            ctx.fillText("뭐해? -> 1  |  수행? -> 2  |  필기? -> 3", canvas.width / 2, 50);
+            if (state.status === 'showing') state.heechul.draw();
+        }
+        stageObjects.forEach(o => { if(o.type==='goal') {ctx.fillStyle=o.color; ctx.fillRect(o.x,o.y,o.w,o.h);}});
+        hazards.forEach(o => o.draw && o.draw(o)); player.draw(); enemies.forEach(o => o.draw()); npcs.forEach(o => o.draw()); projectiles.forEach(o => o.draw());
+    }
+}
+
+function updateUI() {
+    jibunSpan.textContent = jibun.toFixed(1);
+    if(player) {
+        hpBar.style.width = `${(player.hp / player.maxHp) * 100}%`;
+        cooldownTracker.textContent = player.attack2Cooldown > 0 ? `발차기: ${(player.attack2Cooldown / 1000).toFixed(1)}초` : '발차기: 준비 완료';
+        hoodieCooldownTracker.textContent = player.hoodieCooldown > 0 ? `후드 쓰기: ${(player.hoodieCooldown / 1000).toFixed(1)}초` : '후드 쓰기: 준비 완료';
+    }
+}
+function showMessageBox(title, text, btn, cb, isChoiceBox = false) {
+    if (!isChoiceBox) {
+        messageChoices.innerHTML = '';
+    }
+    gameState = 'dialogue';
+    messageTitle.style.display = 'block'; messageTitle.textContent = title;
+    messageText.textContent = text; messageButton.textContent = btn;
+    messageButton.style.display = btn ? 'inline-block' : 'none';
+    messageBox.style.display = 'block';
+    messageBox.classList.toggle('game-over', title === "게임 오버");
+    messageButton.onclick = () => { if(messageBox.style.display === 'block') { messageBox.style.display = 'none'; cb(); } };
+}
+function showCredits() {
+    gameState = 'credits';
+    creditsScreen.style.display = 'block';
+}
+
+// --- Event Listeners & Start ---
+window.addEventListener('keydown', (e) => {
+    keys[e.key] = true;
+    if (e.key === 'Enter' && messageBox.style.display === 'block' && messageButton.style.display !== 'none') {
+        e.preventDefault();
+        messageButton.click();
+    }
+    if (e.key === 'Shift') {
+        e.preventDefault();
+        if (gameState === 'playing') {
+            if(currentStageConfig?.type === 'tutorial' && tutorialStep === 4) tutorialHasBeenPaused = true;
+            gameState = 'paused'; renderItemShop(); pauseMenu.style.display = 'block';
+        }
+        else if (gameState === 'paused') { gameState = 'playing'; pauseMenu.style.display = 'none'; }
+    }
+    if (e.key === '0') {
+        if(gameState === 'playing' && currentStageConfig && currentStageConfig.skippable) stageClear();
+        if(gameState === 'finalVictoryPending') showCredits();
+    }
+    if (e.code === 'Space' && currentStageConfig && currentStageConfig.type === 'timer' && gameState === 'playing') {
+        gameState = 'dialogue';
+        const elapsed = (Date.now() - stageObjects[0].startTime) / 1000;
+        if(Math.abs(elapsed - 15) <= 0.15) { 
+            showMessageBox("수행평가 통과!", `기록: ${elapsed.toFixed(3)}초! 완벽해!`, "다음으로", stageClear);
+        } else { 
+            gameOver(currentStageConfig.defeatName);
+        }
+    }
+});
+window.addEventListener('keyup', (e) => { keys[e.key] = false; });
+init();
+requestAnimationFrame(gameLoop);
+
+</script>
+</body>
+</html>
