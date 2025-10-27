@@ -498,7 +498,7 @@ function stageClear() {
         }
     };
     if(specialEndings[currentStageConfig.type]) {
-        specialEndings[currentStageConfig.type]();
+        specialEndingscurrentStageConfig.type;
     } else {
         showMessageBox("미션 성공!", currentStageConfig.clearMessage || `지분 ${currentStageConfig.jibunReward.toFixed(1)}% 획득!`, "다음으로", () => { currentStage++; loadStage(); });
     }
@@ -720,7 +720,7 @@ function update(dt) {
             const dist = Math.hypot(playerCenterX - h.x, playerCenterY - h.y);
             if (dist < h.radius + player.size / 2) collision = true;
         } else {
-            if(isColliding(h, player)) collision = true;
+            if(isColliding(h, player)) collision.log(h.damage)
         }
         if (collision) player.takeDamage(h.damage || 10);
     });
@@ -790,9 +790,9 @@ function update(dt) {
                 if (state.score >= state.targetScore) stageClear();
             }
         }
-        missionTracker.textContent = `잡은 횟수: ${state.score}/${state.targetScore} | 남은시간: ${(stageTimer/60).toFixed(1)}초`;
+        missionTracker.textContent = `잡은 횟수: ${state.score}/${state.targetScore} | 남은시간: ${(stageTimer/1000).toFixed(1)}초`;
     }
-    else if (type === 'volleyball') updateVolleyball();
+    else if (type === 'volleyball') updateVolleyball(dt);
     else if (type === 'timer') {
         const elapsed = (Date.now() - stageObjects[0].startTime) / 1000;
         missionTracker.textContent = `경과 시간: ${elapsed.toFixed(3)}초`;
@@ -865,7 +865,7 @@ function updateVolleyball(dt) {
     const checkHit = (p, b) => { 
         const dist = Math.hypot(p.x + p.size / 2 - b.x, p.y + p.size / 2 - b.y); 
         if (dist < p.size / 2 + b.size / 2) { 
-            b.vx = (b.x - (p.x + p.size / 2)) * 0.4 * scale;
+            b.vx = (b.x - (p.x + p.size / 2)) * 0.4;
             b.vy = -11;
         }
     };
@@ -873,7 +873,7 @@ function updateVolleyball(dt) {
     checkHit(state.p2, state.ball);
 
     if (isColliding(state.ball, state.net)) { 
-        state.ball.vx *= -1.1 * scale; 
+        state.ball.vx *= -1.1; 
         state.ball.x += state.ball.vx > 0 ? 5 : -5; 
     }
 
