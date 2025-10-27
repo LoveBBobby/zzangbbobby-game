@@ -161,8 +161,8 @@ class Player extends Character {
         this.x = Math.max(0, Math.min(canvas.width - this.size, this.x)); 
         this.y = Math.max(0, Math.min(canvas.height - this.size, this.y));
 
-        if (keys['1'] && this.attack1Cooldown === 0 && currentStageConfig.type !== 'dinoRunner') this.attack('휘젓기'); 
-        if (keys['2'] && this.attack2Cooldown === 0 && currentStageConfig.type !== 'dinoRunner') this.attack('발차기'); 
+        if (keys['1'] && this.attack1Cooldown <= 0 && currentStageConfig.type !== 'dinoRunner') this.attack('휘젓기'); 
+        if (keys['2'] && this.attack2Cooldown <= 0 && currentStageConfig.type !== 'dinoRunner') this.attack('발차기'); 
         if (keys['3'] && this.hoodieCooldown <= 0) { this.hoodieOn = true; this.hoodieCooldown = 5000; setTimeout(() => this.hoodieOn = false, 2000); }
     }
     attack(type) { if (type === '휘젓기') { this.attack1Cooldown = 333; projectiles.push(new AttackHitbox(this.x, this.y, this.size, 'circle', 80, 20, 167)); } else if (type === '발차기') { this.attack2Cooldown = 2000; projectiles.push(new AttackHitbox(this.x, this.y, this.size, 'rect', 120, 30, 333)); } }
